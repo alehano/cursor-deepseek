@@ -97,6 +97,9 @@ type ToolCall struct {
 
 // getAPIKey parse api key and extract DeepSeek API key from it
 func getAPIKey(s string) string {
+	if !strings.Contains(s, "@") {
+		return s
+	}
 	parts := strings.Split(s, "@")
 	if len(parts) != 2 {
 		return ""
