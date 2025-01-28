@@ -24,6 +24,7 @@ const (
 	deepseekEndpoint  = "https://api.deepseek.com"
 	deepseekChatModel = "deepseek-chat"
 	gpt4oModel        = "gpt-4o"
+	port              = "9000"
 )
 
 // Uses ad prefix to API key: secret@apikey
@@ -39,6 +40,11 @@ func init() {
 	secret = os.Getenv("SECRET")
 	if secret == "" {
 		log.Fatal("SECRET environment variable is required")
+	}
+
+	newPort := os.Getenv("PORT")
+	if newPort != "" {
+		port = newPort
 	}
 }
 
@@ -196,7 +202,7 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
 
 	server := &http.Server{
-		Addr:    ":9000",
+		Addr:    ":" + port,
 		Handler: http.HandlerFunc(proxyHandler),
 	}
 
