@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/joho/godotenv"
 	"golang.org/x/net/http2"
 )
 
@@ -24,26 +23,20 @@ const (
 	deepseekEndpoint  = "https://api.deepseek.com"
 	deepseekChatModel = "deepseek-chat"
 	gpt4oModel        = "gpt-4o"
-	port              = "9000"
 )
 
 // Uses ad prefix to API key: secret@apikey
 var secret string
+var port = "9000"
 
 func init() {
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found or error loading it: %v", err)
-	}
-
 	// Get DeepSeek API key
 	secret = os.Getenv("SECRET")
 	if secret == "" {
 		log.Fatal("SECRET environment variable is required")
 	}
 
-	newPort := os.Getenv("PORT")
-	if newPort != "" {
+	if newPort := os.Getenv("PORT"); newPort != "" {
 		port = newPort
 	}
 }

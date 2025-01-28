@@ -31,9 +31,6 @@ WORKDIR /app
 # Copy the binary from builder
 COPY --from=builder /app/proxy .
 
-# Copy .env file if needed
-COPY .env .
-
 # Expose port 9000
 EXPOSE 9000
 
