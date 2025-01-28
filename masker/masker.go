@@ -7,18 +7,14 @@ import (
 
 // Compile regex patterns once at package initialization
 var credentialPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)password\s*[:=]\s*([^\s]+)`),
-	regexp.MustCompile(`(?i)api_key\s*[:=]\s*([^\s]+)`),
-	regexp.MustCompile(`(?i)token\s*[:=]\s*([^\s]+)`),
-	regexp.MustCompile(`[a-zA-Z0-9]{32}`),
-	regexp.MustCompile(`[a-zA-Z0-9]{40}`),
-	regexp.MustCompile(`[a-zA-Z0-9]{64}`),
+	regexp.MustCompile(`(?i)(?:password|api[_-]?key|token|secret)\s*[:=]\s*([^\s]+)`),
+	regexp.MustCompile(`(?i)bearer\s+([a-zA-Z0-9._-]{24,})`),
+	regexp.MustCompile(`[a-zA-Z0-9]{32,64}`),
 	regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`),
-	regexp.MustCompile(`(?i)bearer\s+([a-zA-Z0-9._-]+)`),
-	regexp.MustCompile(`\$(?:[A-Z_][A-Z0-9_]*)`),
+	regexp.MustCompile(`\$(?:[A-Z_][A-Z0-9_]*)\b`),
 	regexp.MustCompile(`\$\{(?:[A-Z_][A-Z0-9_]*)\}`),
 	regexp.MustCompile(`\%(?:[A-Z_][A-Z0-9_]*)\%`),
-	regexp.MustCompile(`(?i)[A-Z_][A-Z0-9_]*\s*=\s*([^\s]+)`),
+	regexp.MustCompile(`(?i)(?:password|api[_-]?key|token|secret)\s*=\s*([^\s]+)`),
 }
 
 /*
@@ -43,12 +39,16 @@ func Mask(text string) string {
 
 // TODO: Optimize and add more patterns
 func maskCredentials(text string) string {
-	mask := "[*****SENSITIVE_DATA*****]"
+	mask := "*********"
 	// Mask detected credentials using precompiled patterns
 	for _, re := range credentialPatterns {
 		text = re.ReplaceAllStringFunc(text, func(match string) string {
-			// Skip masking if the match is part of a URL or common non-credential text
-			if strings.Contains(match, "://") || strings.Contains(match, ".") {
+			// Skip masking if the match is part of a URL, common identifiers, or short strings
+			if strings.Contains(match, "://") ||
+				strings.Contains(match, ".") ||
+				len(match) < 16 || // Skip short strings
+				strings.Contains(match, "Id") || // Skip common identifier patterns
+				strings.Contains(match, "ID") {
 				return match
 			}
 
@@ -64,7 +64,7 @@ func maskCredentials(text string) string {
 				}
 			}
 
-			return mask // Mask the credential
+			return mask
 		})
 	}
 
