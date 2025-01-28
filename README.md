@@ -29,6 +29,7 @@ This proxy was created to enable Cursor IDE users to leverage DeepSeek's and Ope
 
 1. Clone the repository
 2. Install dependencies:
+
 ```bash
 go mod download
 ```
@@ -36,30 +37,23 @@ go mod download
 ### Docker Installation
 
 1. Build the Docker image:
+
 ```bash
 docker build -t cursor-deepseek .
 ```
+
 2. Run the container:
-```bash
-docker run -p 9000:9000 --env-file .env cursor-deepseek
-```
 
-## Configuration
-
-1. Create a `.env` file in the project root:
 ```bash
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
-# OR
-OPENROUTER_API_KEY=your_openrouter_api_key_here
+docker run -p 9000:9000
 ```
 
 ## Usage
 
 1. Start the proxy server:
+
 ```bash
 go run proxy.go
-# OR for OpenRouter
-go run proxy-openrouter.go
 ```
 
 The server will start on port 9000 by default.
@@ -93,4 +87,4 @@ The server will start on port 9000 by default.
 
 ## License
 
-This project is licensed under the GNU General Public License v2.0 (GPLv2). See the [LICENSE.md](LICENSE.md) file for details. 
+This project is licensed under the GNU General Public License v2.0 (GPLv2). See the [LICENSE.md](LICENSE.md) file for details.
