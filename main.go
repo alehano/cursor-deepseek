@@ -56,6 +56,10 @@ func debugLog(format string, v ...interface{}) {
 	}
 }
 
+func errorLog(format string, v ...interface{}) {
+	log.Printf(format, v...)
+}
+
 // Models response structure
 type ModelsResponse struct {
 	Object string  `json:"object"`
@@ -237,7 +241,7 @@ func enableCors(w http.ResponseWriter, r *http.Request) {
 }
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Received request: %s %s", r.Method, r.URL.Path)
+	debugLog("Received request: %s %s", r.Method, r.URL.Path)
 
 	if r.Method == "OPTIONS" {
 		enableCors(w, r)
@@ -249,7 +253,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract API key from Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		log.Printf("No Authorization header found")
+		errorLog("No Authorization header found")
 		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
 		return
 	}
@@ -257,46 +261,46 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Expecting format: "Bearer <token>"
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		log.Printf("Invalid Authorization header format")
+		errorLog("Invalid Authorization header format")
 		http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
 		return
 	}
 
 	deepseekAPIKey := getAPIKey(parts[1])
 	if deepseekAPIKey == "" {
-		log.Printf("Empty or wrong API key in Authorization header")
+		errorLog("Empty or wrong API key in Authorization header")
 		http.Error(w, "API key is required", http.StatusUnauthorized)
 		return
 	}
 
 	// Handle /v1/models endpoint
 	if r.URL.Path == "/v1/models" && r.Method == "GET" {
-		log.Printf("Handling /v1/models request")
+		debugLog("Handling /v1/models request")
 		handleModelsRequest(w)
 		return
 	}
 
 	// Log headers for debugging
-	log.Printf("Request headers: %+v", r.Header)
+	debugLog("Request headers: %+v", r.Header)
 
 	// Read and log request body for debugging
 	var chatReq ChatRequest
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error reading request body: %v", err)
+		errorLog("Error reading request body: %v", err)
 		http.Error(w, "Error reading request", http.StatusBadRequest)
 		return
 	}
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	if err := json.Unmarshal(body, &chatReq); err != nil {
-		log.Printf("Error parsing request JSON: %v", err)
-		log.Printf("Raw request body: %s", string(body))
+		errorLog("Error parsing request JSON: %v", err)
+		debugLog("Raw request body: %s", string(body))
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Parsed request: %+v", chatReq)
+	debugLog("Parsed request: %+v", chatReq)
 
 	// Handle models endpoint
 	if r.URL.Path == "/v1/models" {
@@ -312,7 +316,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Only handle API requests with /v1/ prefix
 	if !strings.HasPrefix(r.URL.Path, "/v1/") {
-		log.Printf("Invalid path: %s", r.URL.Path)
+		errorLog("Invalid path: %s", r.URL.Path)
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
@@ -320,23 +324,23 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Restore the body for further reading
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
 
-	log.Printf("Request body: %s", string(body))
+	debugLog("Request body: %s", string(body))
 
 	// Parse the request to check for streaming - reuse existing chatReq
 	if err := json.Unmarshal(body, &chatReq); err != nil {
-		log.Printf("Error parsing request JSON: %v", err)
+		errorLog("Error parsing request JSON: %v", err)
 		http.Error(w, "Error parsing request", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Requested model: %s", chatReq.Model)
+	debugLog("Requested model: %s", chatReq.Model)
 
 	// Replace gpt-4o model with deepseek-chat
 	if chatReq.Model == gpt4oModel {
 		chatReq.Model = deepseekChatModel
-		log.Printf("Model converted to: %s", deepseekChatModel)
+		debugLog("Model converted to: %s", deepseekChatModel)
 	} else {
-		log.Printf("Unsupported model requested: %s", chatReq.Model)
+		errorLog("Unsupported model requested: %s", chatReq.Model)
 		http.Error(w, fmt.Sprintf("Model %s not supported. Use %s instead.", chatReq.Model, gpt4oModel), http.StatusBadRequest)
 		return
 	}
@@ -382,12 +386,12 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Create new request body
 	modifiedBody, err := json.Marshal(deepseekReq)
 	if err != nil {
-		log.Printf("Error creating modified request body: %v", err)
+		errorLog("Error creating modified request body: %v", err)
 		http.Error(w, "Error creating modified request", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Modified request body: %s", string(modifiedBody))
+	debugLog("Modified request body: %s", string(modifiedBody))
 
 	// Create the proxy request to DeepSeek
 	targetURL := deepseekEndpoint + targetPath
@@ -395,10 +399,10 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		targetURL += "?" + r.URL.RawQuery
 	}
 
-	log.Printf("Forwarding to: %s", targetURL)
+	debugLog("Forwarding to: %s", targetURL)
 	proxyReq, err := http.NewRequest(r.Method, targetURL, bytes.NewReader(modifiedBody))
 	if err != nil {
-		log.Printf("Error creating proxy request: %v", err)
+		errorLog("Error creating proxy request: %v", err)
 		http.Error(w, "Error creating proxy request", http.StatusInternalServerError)
 		return
 	}
@@ -418,7 +422,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		proxyReq.Header.Set("Accept-Language", acceptLanguage)
 	}
 
-	log.Printf("Proxy request headers: %v", proxyReq.Header)
+	debugLog("Proxy request headers: %v", proxyReq.Header)
 
 	// Create a custom client with keepalive
 	client := &http.Client{
@@ -432,24 +436,24 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Send the request
 	resp, err := client.Do(proxyReq)
 	if err != nil {
-		log.Printf("Error forwarding request: %v", err)
+		errorLog("Error forwarding request: %v", err)
 		http.Error(w, "Error forwarding request", http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Printf("DeepSeek response status: %d", resp.StatusCode)
-	log.Printf("DeepSeek response headers: %v", resp.Header)
+	debugLog("DeepSeek response status: %d", resp.StatusCode)
+	debugLog("DeepSeek response headers: %v", resp.Header)
 
 	// Handle error responses
 	if resp.StatusCode >= 400 {
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Printf("Error reading error response: %v", err)
+			errorLog("Error reading error response: %v", err)
 			http.Error(w, "Error reading response", http.StatusInternalServerError)
 			return
 		}
-		log.Printf("DeepSeek error response: %s", string(respBody))
+		debugLog("DeepSeek error response: %s", string(respBody))
 
 		// Forward the error response
 		for k, v := range resp.Header {
@@ -472,9 +476,9 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleStreamingResponse(w http.ResponseWriter, resp *http.Response) {
-	log.Printf("Starting streaming response handling")
-	log.Printf("Response status: %d", resp.StatusCode)
-	log.Printf("Response headers: %+v", resp.Header)
+	debugLog("Starting streaming response handling")
+	debugLog("Response status: %d", resp.StatusCode)
+	debugLog("Response headers: %+v", resp.Header)
 
 	// Set headers for streaming response
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -501,7 +505,7 @@ func handleStreamingResponse(w http.ResponseWriter, resp *http.Response) {
 			case <-ticker.C:
 				// Send a heartbeat comment
 				if _, err := w.Write([]byte(": heartbeat\n\n")); err != nil {
-					log.Printf("Error sending heartbeat: %v", err)
+					debugLog("Error sending heartbeat: %v", err)
 					cancel()
 					return
 				}
@@ -517,10 +521,10 @@ func handleStreamingResponse(w http.ResponseWriter, resp *http.Response) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Context cancelled, ending stream")
+			debugLog("Context cancelled, ending stream")
 			return
 		case <-clientClosed:
-			log.Printf("Client closed connection")
+			debugLog("Client closed connection")
 			cancel()
 			return
 		default:
@@ -529,7 +533,7 @@ func handleStreamingResponse(w http.ResponseWriter, resp *http.Response) {
 				if err == io.EOF {
 					continue
 				}
-				log.Printf("Error reading stream: %v", err)
+				debugLog("Error reading stream: %v", err)
 				cancel()
 				return
 			}
@@ -541,7 +545,7 @@ func handleStreamingResponse(w http.ResponseWriter, resp *http.Response) {
 
 			// Write the line to the response
 			if _, err := w.Write(line); err != nil {
-				log.Printf("Error writing to response: %v", err)
+				debugLog("Error writing to response: %v", err)
 				cancel()
 				return
 			}
@@ -550,26 +554,26 @@ func handleStreamingResponse(w http.ResponseWriter, resp *http.Response) {
 			if f, ok := w.(http.Flusher); ok {
 				f.Flush()
 			} else {
-				log.Printf("Warning: ResponseWriter does not support Flush")
+				debugLog("Warning: ResponseWriter does not support Flush")
 			}
 		}
 	}
 }
 
 func handleRegularResponse(w http.ResponseWriter, resp *http.Response) {
-	log.Printf("Handling regular (non-streaming) response")
-	log.Printf("Response status: %d", resp.StatusCode)
-	log.Printf("Response headers: %+v", resp.Header)
+	debugLog("Handling regular (non-streaming) response")
+	debugLog("Response status: %d", resp.StatusCode)
+	debugLog("Response headers: %+v", resp.Header)
 
 	// Read and log response body
 	body, err := readResponse(resp)
 	if err != nil {
-		log.Printf("Error reading response: %v", err)
+		debugLog("Error reading response: %v", err)
 		http.Error(w, "Error reading response from upstream", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Original response body: %s", string(body))
+	debugLog("Original response body: %s", string(body))
 
 	// Parse the DeepSeek response
 	var deepseekResp struct {
@@ -590,7 +594,7 @@ func handleRegularResponse(w http.ResponseWriter, resp *http.Response) {
 	}
 
 	if err := json.Unmarshal(body, &deepseekResp); err != nil {
-		log.Printf("Error parsing DeepSeek response: %v", err)
+		debugLog("Error parsing DeepSeek response: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -639,12 +643,12 @@ func handleRegularResponse(w http.ResponseWriter, resp *http.Response) {
 
 		// Ensure tool calls are properly formatted in the message
 		if len(choice.Message.ToolCalls) > 0 {
-			log.Printf("Processing %d tool calls in choice %d", len(choice.Message.ToolCalls), i)
+			debugLog("Processing %d tool calls in choice %d", len(choice.Message.ToolCalls), i)
 			for j, tc := range choice.Message.ToolCalls {
-				log.Printf("Tool call %d: %+v", j, tc)
+				debugLog("Tool call %d: %+v", j, tc)
 				// Ensure the tool call has the required fields
 				if tc.Function.Name == "" {
-					log.Printf("Warning: Empty function name in tool call %d", j)
+					debugLog("Warning: Empty function name in tool call %d", j)
 					continue
 				}
 				// Keep the tool call as is since it's already in the correct format
@@ -656,18 +660,18 @@ func handleRegularResponse(w http.ResponseWriter, resp *http.Response) {
 	// Convert back to JSON
 	modifiedBody, err := json.Marshal(openAIResp)
 	if err != nil {
-		log.Printf("Error creating modified response: %v", err)
+		debugLog("Error creating modified response: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Modified response body: %s", string(modifiedBody))
+	debugLog("Modified response body: %s", string(modifiedBody))
 
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	w.Write(modifiedBody)
-	log.Printf("Modified response sent successfully")
+	debugLog("Modified response sent successfully")
 }
 
 func copyHeaders(dst, src http.Header) {
@@ -689,7 +693,7 @@ func copyHeaders(dst, src http.Header) {
 }
 
 func handleModelsRequest(w http.ResponseWriter) {
-	log.Printf("Handling models request")
+	debugLog("Handling models request")
 	response := ModelsResponse{
 		Object: "list",
 		Data: []Model{
@@ -710,7 +714,7 @@ func handleModelsRequest(w http.ResponseWriter) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-	log.Printf("Models response sent successfully")
+	debugLog("Models response sent successfully")
 }
 
 func readResponse(resp *http.Response) ([]byte, error) {
