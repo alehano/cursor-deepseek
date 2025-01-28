@@ -26,7 +26,8 @@ const (
 	gpt4oModel        = "gpt-4o"
 )
 
-var deepseekAPIKey string
+// Uses ad prefix to API key: secret@apikey
+var secret string
 
 func init() {
 	// Load .env file
@@ -35,9 +36,9 @@ func init() {
 	}
 
 	// Get DeepSeek API key
-	deepseekAPIKey = os.Getenv("DEEPSEEK_API_KEY")
-	if deepseekAPIKey == "" {
-		log.Fatal("DEEPSEEK_API_KEY environment variable is required")
+	secret = os.Getenv("SECRET")
+	if secret == "" {
+		log.Fatal("SECRET environment variable is required")
 	}
 }
 
@@ -92,6 +93,18 @@ type ToolCall struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
+}
+
+// getAPIKey parse api key and extract DeepSeek API key from it
+func getAPIKey(s string) string {
+	parts := strings.Split(s, "@")
+	if len(parts) != 2 {
+		return ""
+	}
+	if parts[0] != secret {
+		return ""
+	}
+	return parts[1]
 }
 
 func convertToolChoice(choice interface{}) string {
@@ -211,18 +224,26 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	enableCors(w, r)
 
-	// Validate API key
+	// Extract API key from Authorization header
 	authHeader := r.Header.Get("Authorization")
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		log.Printf("Missing or invalid Authorization header")
-		http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
+	if authHeader == "" {
+		log.Printf("No Authorization header found")
+		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
 		return
 	}
 
-	userAPIKey := strings.TrimPrefix(authHeader, "Bearer ")
-	if userAPIKey != deepseekAPIKey {
-		log.Printf("Invalid API key provided")
-		http.Error(w, "Invalid API key", http.StatusUnauthorized)
+	// Expecting format: "Bearer <token>"
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		log.Printf("Invalid Authorization header format")
+		http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+		return
+	}
+
+	deepseekAPIKey := getAPIKey(parts[1])
+	if deepseekAPIKey == "" {
+		log.Printf("Empty or wrong API key in Authorization header")
+		http.Error(w, "API key is required", http.StatusUnauthorized)
 		return
 	}
 
