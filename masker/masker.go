@@ -43,6 +43,7 @@ func Mask(text string) string {
 
 // TODO: Optimize and add more patterns
 func maskCredentials(text string) string {
+	mask := "[*****SENSITIVE_DATA*****]"
 	// Mask detected credentials using precompiled patterns
 	for _, re := range credentialPatterns {
 		text = re.ReplaceAllStringFunc(text, func(match string) string {
@@ -55,15 +56,15 @@ func maskCredentials(text string) string {
 			if strings.Contains(match, ":") || strings.Contains(match, "=") {
 				parts := strings.SplitN(match, ":", 2)
 				if len(parts) == 2 {
-					return parts[0] + ": *****"
+					return parts[0] + ": " + mask
 				}
 				parts = strings.SplitN(match, "=", 2)
 				if len(parts) == 2 {
-					return parts[0] + "= *****"
+					return parts[0] + "= " + mask
 				}
 			}
 
-			return "[*****SENSITIVE_DATA*****]" // Mask the credential
+			return mask // Mask the credential
 		})
 	}
 
