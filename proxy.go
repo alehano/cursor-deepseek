@@ -32,6 +32,9 @@ var port = "9000"
 func init() {
 	// Get DeepSeek API key
 	secret = os.Getenv("SECRET")
+	if secret == "" {
+		log.Fatal("SECRET environment variable is required")
+	}
 	if newPort := os.Getenv("PORT"); newPort != "" {
 		port = newPort
 	}
@@ -92,9 +95,9 @@ type ToolCall struct {
 
 // getAPIKey parse api key and extract DeepSeek API key from it
 func getAPIKey(s string) string {
-	if !strings.Contains(s, "@") {
-		return s
-	}
+	// if !strings.Contains(s, "@") {
+	// 	return s
+	// }
 	parts := strings.Split(s, "@")
 	if len(parts) != 2 {
 		return ""
@@ -280,6 +283,12 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Modify the target URL to always add /v1
+	targetPath := r.URL.Path
+	if !strings.HasPrefix(targetPath, "/v1/") {
+		targetPath = "/v1" + targetPath
+	}
+
 	// Only handle API requests with /v1/ prefix
 	if !strings.HasPrefix(r.URL.Path, "/v1/") {
 		log.Printf("Invalid path: %s", r.URL.Path)
@@ -360,7 +369,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Modified request body: %s", string(modifiedBody))
 
 	// Create the proxy request to DeepSeek
-	targetURL := deepseekEndpoint + r.URL.Path
+	targetURL := deepseekEndpoint + targetPath
 	if r.URL.RawQuery != "" {
 		targetURL += "?" + r.URL.RawQuery
 	}
