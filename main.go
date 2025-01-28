@@ -6,6 +6,7 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
+	"cursor-deepseek/masker"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +29,7 @@ const (
 // Uses ad prefix to API key: secret@apikey
 var secret string
 var port = "9000"
+var useMask = true
 
 func init() {
 	// Get DeepSeek API key
@@ -37,6 +39,9 @@ func init() {
 	}
 	if newPort := os.Getenv("PORT"); newPort != "" {
 		port = newPort
+	}
+	if newUseMask := os.Getenv("DISABLE_MASK"); newUseMask == "true" {
+		useMask = false
 	}
 }
 
@@ -136,6 +141,11 @@ func convertMessages(messages []Message) []Message {
 	for i, msg := range messages {
 		log.Printf("Converting message %d - Role: %s", i, msg.Role)
 		converted[i] = msg
+
+		// Apply masking to user messages if enabled
+		if useMask && msg.Role == "user" {
+			converted[i].Content = masker.Mask(msg.Content)
+		}
 
 		// Handle assistant messages with tool calls
 		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
