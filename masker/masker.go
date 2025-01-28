@@ -21,12 +21,8 @@ var credentialPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)[A-Z_][A-Z0-9_]*\s*=\s*([^\s]+)`),
 }
 
-func Mask(text string) string {
-	return maskCredentials(text)
-}
-
 /*
-maskCredentials masks detected credentials in the input text
+Mask masks detected credentials in the input text
 
 Here is a sample text with credentials:
   - password: mysecretpassword
@@ -40,9 +36,12 @@ Here is a sample text with credentials:
   - Env var (Unix with braces): ${DATABASE_URL}
   - Env var (Windows): %SECRET_TOKEN%
   - Key-value pair: DEEPSEEK_API_KEY=sk-8a65d84eb9e6
-
-TODO: Optimize and add more patterns
 */
+func Mask(text string) string {
+	return maskCredentials(text)
+}
+
+// TODO: Optimize and add more patterns
 func maskCredentials(text string) string {
 	// Mask detected credentials using precompiled patterns
 	for _, re := range credentialPatterns {
