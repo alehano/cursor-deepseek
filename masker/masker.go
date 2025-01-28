@@ -63,7 +63,7 @@ func maskCredentials(text string) string {
 				}
 			}
 
-			return "*****" // Mask the credential
+			return "[*****SENSITIVE_DATA*****]" // Mask the credential
 		})
 	}
 
