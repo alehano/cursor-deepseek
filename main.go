@@ -30,6 +30,7 @@ const (
 var secret string
 var port = "9000"
 var useMask = true
+var debug = false
 
 func init() {
 	// Get DeepSeek API key
@@ -42,6 +43,16 @@ func init() {
 	}
 	if newUseMask := os.Getenv("DISABLE_MASK"); newUseMask == "true" {
 		useMask = false
+	}
+	if os.Getenv("DEBUG") == "true" {
+		debug = true
+	}
+}
+
+// Add a debug logging helper
+func debugLog(format string, v ...interface{}) {
+	if debug {
+		log.Printf(format, v...)
 	}
 }
 
@@ -139,7 +150,7 @@ func convertToolChoice(choice interface{}) string {
 func convertMessages(messages []Message) []Message {
 	converted := make([]Message, len(messages))
 	for i, msg := range messages {
-		log.Printf("Converting message %d - Role: %s", i, msg.Role)
+		debugLog("Converting message %d - Role: %s", i, msg.Role)
 		converted[i] = msg
 
 		// Apply masking to user messages if enabled
@@ -149,7 +160,7 @@ func convertMessages(messages []Message) []Message {
 
 		// Handle assistant messages with tool calls
 		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
-			log.Printf("Processing assistant message with %d tool calls", len(msg.ToolCalls))
+			debugLog("Processing assistant message with %d tool calls", len(msg.ToolCalls))
 			// DeepSeek expects tool_calls in a specific format
 			toolCalls := make([]ToolCall, len(msg.ToolCalls))
 			for j, tc := range msg.ToolCalls {
@@ -158,14 +169,14 @@ func convertMessages(messages []Message) []Message {
 					Type:     "function",
 					Function: tc.Function,
 				}
-				log.Printf("Tool call %d - ID: %s, Function: %s", j, tc.ID, tc.Function.Name)
+				debugLog("Tool call %d - ID: %s, Function: %s", j, tc.ID, tc.Function.Name)
 			}
 			converted[i].ToolCalls = toolCalls
 		}
 
 		// Handle function response messages
 		if msg.Role == "function" {
-			log.Printf("Converting function response to tool response")
+			debugLog("Converting function response to tool response")
 			// Convert to tool response format
 			converted[i].Role = "tool"
 		}
@@ -173,9 +184,9 @@ func convertMessages(messages []Message) []Message {
 
 	// Log the final converted messages
 	for i, msg := range converted {
-		log.Printf("Final message %d - Role: %s, Content: %s", i, msg.Role, truncateString(msg.Content, 50))
+		debugLog("Final message %d - Role: %s, Content: %s", i, msg.Role, truncateString(msg.Content, 50))
 		if len(msg.ToolCalls) > 0 {
-			log.Printf("Message %d has %d tool calls", i, len(msg.ToolCalls))
+			debugLog("Message %d has %d tool calls", i, len(msg.ToolCalls))
 		}
 	}
 
