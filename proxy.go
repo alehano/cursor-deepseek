@@ -32,10 +32,6 @@ var port = "9000"
 func init() {
 	// Get DeepSeek API key
 	secret = os.Getenv("SECRET")
-	if secret == "" {
-		log.Fatal("SECRET environment variable is required")
-	}
-
 	if newPort := os.Getenv("PORT"); newPort != "" {
 		port = newPort
 	}
