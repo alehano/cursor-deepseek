@@ -20,16 +20,21 @@ import (
 	"golang.org/x/net/http2"
 )
 
-const (
-	deepseekEndpoint  = "https://api.deepseek.com"
-	deepseekChatModel = "deepseek-chat"
-	gpt4oModel        = "gpt-4o"
+var (
+	// deepseekEndpoint  = "https://api.deepseek.com"
+	// deepseekChatModel = "deepseek-chat"
+	// gpt4oModel        = "gpt-4o"
+	deepseekEndpoint  = os.Getenv("DEEPSEEK_ENDPOINT")
+	deepseekChatModel = os.Getenv("DEEPSEEK_CHAT_MODEL")
+	model             = os.Getenv("MODEL")
 )
 
 // Uses ad prefix to API key: secret@apikey
 var secret string
-var port = "9000"
-var useMask = true
+
+// var port = "9000"
+var port = os.Getenv("PORT")
+var useMask = false
 var debug = false
 
 func init() {
@@ -41,11 +46,15 @@ func init() {
 	if newPort := os.Getenv("PORT"); newPort != "" {
 		port = newPort
 	}
-	if newUseMask := os.Getenv("DISABLE_MASK"); newUseMask == "true" {
-		useMask = false
+	if newUseMask := os.Getenv("USE_MASK"); newUseMask == "true" {
+		useMask = true
 	}
 	if os.Getenv("DEBUG") == "true" {
 		debug = true
+	}
+	// Default port
+	if port == "" {
+		port = "9000"
 	}
 }
 
@@ -336,12 +345,12 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	debugLog("Requested model: %s", chatReq.Model)
 
 	// Replace gpt-4o model with deepseek-chat
-	if chatReq.Model == gpt4oModel {
+	if chatReq.Model == model {
 		chatReq.Model = deepseekChatModel
 		debugLog("Model converted to: %s", deepseekChatModel)
 	} else {
 		errorLog("Unsupported model requested: %s", chatReq.Model)
-		http.Error(w, fmt.Sprintf("Model %s not supported. Use %s instead.", chatReq.Model, gpt4oModel), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Model %s not supported. Use %s instead.", chatReq.Model, model), http.StatusBadRequest)
 		return
 	}
 
@@ -619,7 +628,7 @@ func handleRegularResponse(w http.ResponseWriter, resp *http.Response) {
 		ID:      deepseekResp.ID,
 		Object:  "chat.completion",
 		Created: deepseekResp.Created,
-		Model:   gpt4oModel, // Use the original model name
+		Model:   model, // Use the original model name
 		Usage:   deepseekResp.Usage,
 	}
 
